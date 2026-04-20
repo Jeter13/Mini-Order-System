@@ -1,4 +1,7 @@
-from flask import Flask, jsonify
+from flask import Flask, request, jsonify, render_template
+from flask_cors import CORS
+
+
 from domain.product import Product
 from repository.product_repo import ProductRepository
 from repository.order_repo import OrderRepository
@@ -22,45 +25,63 @@ order_service.create_order([
 ])
 
 app = Flask(__name__)
+CORS(app)
 
 # API endpoint
-@app.route('/products', methods=['GET'])
-def get_products():
-    products = product_repo.list_all()
+@app.route("/orders", methods=["GET"])
+def list_orders():
+    orders = order_repo.list_all()
+    return jsonify([{"id": o.id} for o in orders])
 
-    result = []
-    for p in products:
-        result.append({
-            "id": p.id,
-            "name": p.name,
-            "price": p.price
-        })
-
-    return jsonify(result)
-
-
-@app.route('/order/<int:order_id>', methods=['GET'])
+@app.route("/orders/<int:order_id>", methods=["GET"])
 def get_order(order_id):
     order = order_repo.get(order_id)
 
     if order is None:
-        return jsonify({'message': 'Order not found'})
+        return jsonify({"error": "Order not found"}), 404
 
-    items = []
-    for item in order.items:
-        items.append({
-            "product": item.product.name,
-            "quantity": item.quantity,
-            "subtotal": item.subtotal()
-        })
-
-    response = {
+    return jsonify({
         "order_id": order.id,
-        "items": items,
+        "items": [
+            {
+                "product": item.product.name,
+                "quantity": item.quantity,
+                "subtotal": item.subtotal()
+            }
+            for item in order.items
+        ],
         "total": order.total()
-    }
+    })
 
-    return jsonify(response)
+@app.route("/orders", methods=["POST"])
+def create_order():
+    data = request.get_json()
+    items = data.get("items", [])
+
+    order = order_service.create_order(items)
+
+    return jsonify({"message": "Order created", "order_id": order.id})
+
+@app.route("/products", methods=["POST"])
+def create_product():
+    data = request.get_json()
+
+    product = Product(data["id"], data["name"], data["price"])
+    product_repo.add(product)
+
+    return jsonify({"message": "Product created"})
+
+@app.route("/products", methods=["GET"])
+def get_products():
+    products = product_repo.list_all()
+    return jsonify([
+        {"id": p.id, "name": p.name, "price": p.price}
+        for p in products
+    ])
+
+@app.route("/")
+def home():
+    return render_template("index.html")
 
 if __name__ == '__main__':
     app.run(debug=True)
