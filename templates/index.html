@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Order System</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        h2 {
+            color: #444;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+        }
+
+        .card {
+            background: white;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        input {
+            padding: 6px;
+            margin: 5px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        .output {
+            margin-top: 10px;
+            padding: 10px;
+            background: #fafafa;
+            border-radius: 5px;
+        }
+
+        .total {
+            font-weight: bold;
+            color: #2c7be5;
+        }
+
+        .error {
+            color: red;
+        }
+
+        .success {
+            color: green;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <h1>🛒 Hand Made Stuff Dashboard</h1>
+
+    <!-- PRODUCTS -->
+    <div class="card">
+        <h2>Products</h2>
+        <button onclick="loadProducts()">Load Products</button>
+        <div id="products" class="output"></div>
+    </div>
+
+    <!-- ORDERS -->
+    <div class="card">
+        <h2>Orders</h2>
+        <button onclick="loadOrders()">Load Orders</button>
+        <div id="orders" class="output"></div>
+    </div>
+
+    <!-- ORDER DETAILS -->
+    <div class="card">
+        <h2>Order Details</h2>
+        <input type="number" id="orderIdInput" placeholder="Order ID">
+        <button onclick="viewOrder()">View Order</button>
+        <div id="orderDetails" class="output"></div>
+    </div>
+
+    <!-- CREATE ORDER -->
+    <div class="card">
+        <h2>Create Order</h2>
+        <input type="text" id="orderInput" placeholder="1,2;2,1">
+        <button onclick="createOrder()">Create Order</button>
+        <div id="createOrderResult" class="output"></div>
+    </div>
+
+    <!-- CREATE PRODUCT -->
+    <div class="card">
+        <h2>Create Product</h2>
+        <input type="number" id="prodId" placeholder="ID">
+        <input type="text" id="prodName" placeholder="Name">
+        <input type="number" step="0.01" id="prodPrice" placeholder="Price">
+        <button onclick="createProduct()">Create Product</button>
+        <div id="createProductResult" class="output"></div>
+    </div>
+</div>
+
+<script>
+const API_BASE = "http://127.0.0.1:5000";
+
+// =========================
+// LOAD PRODUCTS
+// =========================
+async function loadProducts() {
+    const res = await fetch(`${API_BASE}/products`);
+    const data = await res.json();
+
+    let html = "";
+    data.forEach(p => {
+        html += `ID: ${p.id} | ${p.name} | $${p.price}<br>`;
+    });
+
+    document.getElementById("products").innerHTML = html;
+}
+
+// =========================
+// LOAD ORDERS (IDs ONLY)
+// =========================
+async function loadOrders() {
+    const res = await fetch(`${API_BASE}/orders`);
+    const data = await res.json();
+
+    let html = "";
+    data.forEach(o => {
+        html += `Order ID: ${o.id}<br>`;
+    });
+
+    document.getElementById("orders").innerHTML = html;
+}
+
+// =========================
+// VIEW ORDER DETAILS
+// =========================
+async function viewOrder() {
+    const id = document.getElementById("orderIdInput").value;
+
+    const res = await fetch(`${API_BASE}/orders/${id}`);
+    const data = await res.json();
+
+    if (data.error) {
+        document.getElementById("orderDetails").innerHTML = data.error;
+        return;
+    }
+
+    let html = `Order ID: ${data.order_id}<br>`;
+    data.items.forEach(i => {
+        html += `Product: ${i.product} | Qty: ${i.quantity} | Subtotal: $${i.subtotal}<br>`;
+    });
+    html += `<strong>Total: $${data.total}</strong>`;
+
+    document.getElementById("orderDetails").innerHTML = html;
+}
+
+// =========================
+// CREATE ORDER
+// =========================
+async function createOrder() {
+    const input = document.getElementById("orderInput").value;
+
+    // Convert "1,2;2,1" → [[1,2],[2,1]]
+    const items = input.split(";").map(pair => {
+        const [id, qty] = pair.split(",").map(Number);
+        return [id, qty];
+    });
+
+    const res = await fetch(`${API_BASE}/orders`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ items })
+    });
+
+    const data = await res.json();
+    document.getElementById("createOrderResult").innerHTML = JSON.stringify(data);
+
+    loadOrders();
+}
+
+// =========================
+// CREATE PRODUCT
+// =========================
+async function createProduct() {
+    const id = Number(document.getElementById("prodId").value);
+    const name = document.getElementById("prodName").value;
+    const price = Number(document.getElementById("prodPrice").value);
+
+    const res = await fetch(`${API_BASE}/products`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ id, name, price })
+    });
+
+    const data = await res.json();
+    document.getElementById("createProductResult").innerHTML = JSON.stringify(data);
+
+    loadProducts();
+}
+</script>
+
+</body>
+</html>
